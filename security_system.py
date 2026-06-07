@@ -14,10 +14,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 
-# ─────────────────────────────────────────────
 #  AES-256 ENCRYPTION (Layer 1 Security)
-# ─────────────────────────────────────────────
-
 # AES-256 requires a 32-byte key — read from environment variable
 def get_aes_key() -> bytes:
     """Get AES-256 key from environment. Must be exactly 32 bytes."""
@@ -75,9 +72,7 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
 
 
-# ─────────────────────────────────────────────
 #  SQL INJECTION DETECTION (Layer 2 Security)
-# ─────────────────────────────────────────────
 
 # Comprehensive list of SQL injection patterns
 SQL_INJECTION_PATTERNS = [
@@ -150,9 +145,7 @@ def sanitize_input(user_input: str) -> str:
     return sanitized.strip()
 
 
-# ─────────────────────────────────────────────
 #  DATABASE CONNECTION — AWS RDS MySQL
-# ─────────────────────────────────────────────
 
 def get_connection():
     """Connect to AWS RDS MySQL using environment variables."""
@@ -238,9 +231,7 @@ def init_db():
     print("[DB] All tables initialized successfully.")
 
 
-# ─────────────────────────────────────────────
 #  DOUBLE-LAYER SECURITY PROTOCOL
-# ─────────────────────────────────────────────
 
 def secure_register(username: str, email: str, password: str, ip: str = "unknown") -> dict:
     """
@@ -365,9 +356,7 @@ def test_injection(test_input: str, ip: str = "unknown") -> dict:
     }
 
 
-# ─────────────────────────────────────────────
 #  LOGGING HELPERS
-# ─────────────────────────────────────────────
 
 def log_attempt(input_data: str, action: str, detection: dict, ip: str):
     """Log every access attempt to security_log table."""
@@ -416,9 +405,7 @@ def log_attack(attack_input: str, detection: dict):
         pass
 
 
-# ─────────────────────────────────────────────
 #  DATA FETCH FUNCTIONS
-# ─────────────────────────────────────────────
 
 def get_users() -> list:
     """Fetch all users — emails shown decrypted for admin view."""
