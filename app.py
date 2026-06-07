@@ -1,6 +1,5 @@
 """
 Flask Web API — SQL Injection Detection & Security System
-Task 2 — Internship Project
 Run: python app.py
 """
 
