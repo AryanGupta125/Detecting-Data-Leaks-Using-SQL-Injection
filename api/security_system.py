@@ -7,8 +7,6 @@ import os
 import re
 import hashlib
 import base64
-import mysql.connector
-from mysql.connector import Error
 from datetime import datetime
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -150,16 +148,27 @@ def sanitize_input(user_input: str) -> str:
 def get_connection():
     """Connect to AWS RDS MySQL using environment variables."""
     try:
-        conn = mysql.connector.connect(
+        mysql = _get_mysql()
+
+        required = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"]
+        missing = [name for name in required if not os.environ.get(name)]
+        if missing:
+            raise RuntimeError(
+                "Missing database environment variable(s): " + ", ".join(missing)
+            )
+
+        conn = mysql.connect(
             host     = os.environ.get("DB_HOST"),
             port     = int(os.environ.get("DB_PORT", 3306)),
             user     = os.environ.get("DB_USER"),
             password = os.environ.get("DB_PASSWORD"),
             database = os.environ.get("DB_NAME"),
+            connection_timeout=10
         )
         return conn
-    except Error as e:
-        print(f"[DB ERROR] {e}")
+
+    except Exception as e:
+        print(f"[DB ERROR] {type(e).__name__}: {e}")
         raise
 
 
@@ -169,7 +178,9 @@ def init_db():
 
     # Step 1: Create database if not exists
     try:
-        temp_conn = mysql.connector.connect(
+        mysql = _get_mysql()
+
+        temp_conn = mysql.connect(
             host     = os.environ.get("DB_HOST"),
             port     = int(os.environ.get("DB_PORT", 3306)),
             user     = os.environ.get("DB_USER"),
@@ -181,7 +192,7 @@ def init_db():
         temp_cursor.close()
         temp_conn.close()
         print(f"[DB] Database '{db_name}' ready.")
-    except Error as e:
+    except Exception as e:
         print(f"[DB ERROR] Could not create database: {e}")
         raise
 
@@ -279,7 +290,7 @@ def secure_register(username: str, email: str, password: str, ip: str = "unknown
             "security": "AES-256 encrypted · SQL injection safe · Parameterized query",
             "layer": "Both layers passed ✓"
         }
-    except Error as e:
+    except Exception as e:
         if "Duplicate entry" in str(e):
             return {"success": False, "status": "ERROR", "message": "Username already exists."}
         return {"success": False, "status": "ERROR", "message": str(e)}
@@ -335,7 +346,7 @@ def secure_login(username: str, password: str, ip: str = "unknown") -> dict:
                 "message": "Invalid username or password.",
                 "layer": "Layer 1 — Credential Verification"
             }
-    except Error as e:
+    except Exception as e:
         return {"success": False, "status": "ERROR", "message": str(e)}
 
 
