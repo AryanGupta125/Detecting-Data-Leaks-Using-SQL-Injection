@@ -1,20 +1,41 @@
 """
 Flask Web API — SQL Injection Detection & Security System
 Database: AWS RDS MySQL
+
+Project structure:
+
+app.py
+security_system.py
+requirements.txt
+public/
+    index.html
+    style.css
+    script.js
 """
 
 import os
-from flask import Flask, request, jsonify
 
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    send_from_directory
+)
+
+
+# ============================================================
+# FLASK APPLICATION
+# ============================================================
 
 app = Flask(__name__)
 
 
 # ============================================================
-# LAZY DATABASE IMPORT
+# LAZY IMPORT DATABASE FUNCTIONS
 # ============================================================
 
 def get_db_functions():
+
     from security_system import (
         init_db,
         secure_register,
@@ -39,7 +60,7 @@ def get_db_functions():
 
 
 # ============================================================
-# DATABASE INITIALIZATION
+# DATABASE INITIALIZATION FLAG
 # ============================================================
 
 _db_initialized = False
@@ -54,13 +75,24 @@ def ensure_db_initialized():
 
     try:
 
-        init_db, _, _, _, _, _, _, _ = get_db_functions()
+        (
+            init_db,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _
+        ) = get_db_functions()
 
         init_db()
 
         _db_initialized = True
 
-        print("[DB] Security database initialized successfully.")
+        print(
+            "[DB] Database initialized successfully."
+        )
 
     except Exception as e:
 
@@ -71,14 +103,16 @@ def ensure_db_initialized():
 
 
 # ============================================================
-# HOME PAGE
+# FRONTEND
 # ============================================================
 
 @app.route("/")
 def index():
 
     public_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
+        os.path.dirname(
+            os.path.abspath(__file__)
+        ),
         "public"
     )
 
@@ -94,20 +128,58 @@ def index():
             "expected_path": index_file
         }), 500
 
-    with open(
-        index_file,
-        "r",
-        encoding="utf-8"
-    ) as file:
+    return send_from_directory(
+        public_dir,
+        "index.html"
+    )
 
-        return file.read()
+
+# ============================================================
+# STATIC FILES
+# ============================================================
+
+@app.route("/<path:filename>")
+def static_files(filename):
+
+    # Do not intercept API routes
+    if filename.startswith("api/"):
+
+        return jsonify({
+            "error": "API endpoint not found"
+        }), 404
+
+    public_dir = os.path.join(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        ),
+        "public"
+    )
+
+    file_path = os.path.join(
+        public_dir,
+        filename
+    )
+
+    if not os.path.isfile(file_path):
+
+        return jsonify({
+            "error": "File not found"
+        }), 404
+
+    return send_from_directory(
+        public_dir,
+        filename
+    )
 
 
 # ============================================================
 # REGISTER
 # ============================================================
 
-@app.route("/api/register", methods=["POST"])
+@app.route(
+    "/api/register",
+    methods=["POST"]
+)
 def api_register():
 
     ensure_db_initialized()
@@ -125,14 +197,70 @@ def api_register():
             _
         ) = get_db_functions()
 
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(
+            silent=True
+        ) or {}
 
-        ip = request.remote_addr
+        username = str(
+            data.get(
+                "username",
+                ""
+            )
+        ).strip()
+
+        email = str(
+            data.get(
+                "email",
+                ""
+            )
+        ).strip()
+
+        password = str(
+            data.get(
+                "password",
+                ""
+            )
+        )
+
+        if not username:
+
+            return jsonify({
+                "success": False,
+                "status": "ERROR",
+                "message": "Username is required."
+            }), 400
+
+        if not email:
+
+            return jsonify({
+                "success": False,
+                "status": "ERROR",
+                "message": "Email is required."
+            }), 400
+
+        if not password:
+
+            return jsonify({
+                "success": False,
+                "status": "ERROR",
+                "message": "Password is required."
+            }), 400
+
+        ip = request.headers.get(
+            "X-Forwarded-For",
+            request.remote_addr or "unknown"
+        )
+
+        # If multiple proxy IPs exist,
+        # take the first one.
+        if "," in ip:
+
+            ip = ip.split(",")[0].strip()
 
         result = secure_register(
-            data.get("username", ""),
-            data.get("email", ""),
-            data.get("password", ""),
+            username,
+            email,
+            password,
             ip
         )
 
@@ -146,6 +274,8 @@ def api_register():
         )
 
         return jsonify({
+            "success": False,
+            "status": "ERROR",
             "error": "Registration failed",
             "details": str(e)
         }), 500
@@ -155,7 +285,10 @@ def api_register():
 # LOGIN
 # ============================================================
 
-@app.route("/api/login", methods=["POST"])
+@app.route(
+    "/api/login",
+    methods=["POST"]
+)
 def api_login():
 
     ensure_db_initialized()
@@ -173,13 +306,52 @@ def api_login():
             _
         ) = get_db_functions()
 
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(
+            silent=True
+        ) or {}
 
-        ip = request.remote_addr
+        username = str(
+            data.get(
+                "username",
+                ""
+            )
+        ).strip()
+
+        password = str(
+            data.get(
+                "password",
+                ""
+            )
+        )
+
+        if not username:
+
+            return jsonify({
+                "success": False,
+                "status": "ERROR",
+                "message": "Username is required."
+            }), 400
+
+        if not password:
+
+            return jsonify({
+                "success": False,
+                "status": "ERROR",
+                "message": "Password is required."
+            }), 400
+
+        ip = request.headers.get(
+            "X-Forwarded-For",
+            request.remote_addr or "unknown"
+        )
+
+        if "," in ip:
+
+            ip = ip.split(",")[0].strip()
 
         result = secure_login(
-            data.get("username", ""),
-            data.get("password", ""),
+            username,
+            password,
             ip
         )
 
@@ -193,6 +365,8 @@ def api_login():
         )
 
         return jsonify({
+            "success": False,
+            "status": "ERROR",
             "error": "Login failed",
             "details": str(e)
         }), 500
@@ -202,7 +376,10 @@ def api_login():
 # SQL INJECTION TEST
 # ============================================================
 
-@app.route("/api/test-injection", methods=["POST"])
+@app.route(
+    "/api/test-injection",
+    methods=["POST"]
+)
 def api_test_injection():
 
     ensure_db_initialized()
@@ -224,10 +401,24 @@ def api_test_injection():
             silent=True
         ) or {}
 
-        ip = request.remote_addr
+        test_input = str(
+            data.get(
+                "input",
+                ""
+            )
+        )
+
+        ip = request.headers.get(
+            "X-Forwarded-For",
+            request.remote_addr or "unknown"
+        )
+
+        if "," in ip:
+
+            ip = ip.split(",")[0].strip()
 
         result = test_injection(
-            data.get("input", ""),
+            test_input,
             ip
         )
 
@@ -250,7 +441,10 @@ def api_test_injection():
 # USERS
 # ============================================================
 
-@app.route("/api/users", methods=["GET"])
+@app.route(
+    "/api/users",
+    methods=["GET"]
+)
 def api_users():
 
     ensure_db_initialized()
@@ -289,7 +483,10 @@ def api_users():
 # SECURITY LOGS
 # ============================================================
 
-@app.route("/api/logs", methods=["GET"])
+@app.route(
+    "/api/logs",
+    methods=["GET"]
+)
 def api_logs():
 
     ensure_db_initialized()
@@ -328,7 +525,10 @@ def api_logs():
 # ATTACKS
 # ============================================================
 
-@app.route("/api/attacks", methods=["GET"])
+@app.route(
+    "/api/attacks",
+    methods=["GET"]
+)
 def api_attacks():
 
     ensure_db_initialized()
@@ -367,7 +567,10 @@ def api_attacks():
 # STATISTICS
 # ============================================================
 
-@app.route("/api/stats", methods=["GET"])
+@app.route(
+    "/api/stats",
+    methods=["GET"]
+)
 def api_stats():
 
     ensure_db_initialized()
